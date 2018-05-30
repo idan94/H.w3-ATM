@@ -1,0 +1,15 @@
+calcWP:	
+; -----------------  push the registers we use to the stack: -----------------  
+
+			mov r0, -(sp)
+			mov r1, -(sp)
+			mov r2, -(sp)
+; -----------------  iniitilize registers values: -----------------  
+			mov #64., r0 		; for loop control ( num of squares)
+			mov 12(sp), r1		; r1 point to the first square address now
+			mov 10(sp), r2		; r2 contain the player we count (value)
+
+			mov (sp)+, r2
+			mov (sp)+, r1
+			mov (sp)+, r0
+			mov ???, r4 ; save the return value

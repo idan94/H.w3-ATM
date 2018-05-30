@@ -20,8 +20,8 @@ CntPawn:
 			mov r2, -(sp)
 ; -----------------  iniitilize registers values: -----------------  
 			mov #64., r0 		; for loop control ( num of squares)
-			mov 14(sp), r1		; r1 point to the first square address now
-			mov 12(sp), r2		; r2 contain the player we count 
+			mov 12(sp), r1		; r1 point to the first square address now
+			mov 10(sp), r2		; r2 contain the player we count 
 ChkLoop:	
 			cmp (r1), r2
 			beq AddPawn
