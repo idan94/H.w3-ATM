@@ -1,0 +1,68 @@
+.=torg + 1000
+main:		mov #main, sp
+			mov #Board, -(sp)
+			
+			jsr r5, movPiece
+			.word 43, 21  		; Source pos, Dst Pos
+			
+			halt
+			
+			
+			
+movPiece:	mov	r2, -(sp) 		; r2 : save the player number
+			mov r0, -(sp)		; r0 : Source pos
+			mov r1, -(sp)		; Dst: Pos
+			
+; -----------------  iniitilize registers values: -----------------  
+			mov (r5)+, r0		;	innit
+			mov (r5)+, r1		;	innit
+			asl r0				
+			asl r1
+			add 10(sp), r0		; 	the source square address is now at r0
+			add 10(sp), r1		;	the destination square address is now at r1
+			mov (r0), r2 		;	the player number is now inside r2
+
+; -----------------  move the player: ----------------------------- 
+			
+			mov	r2, (r1)		;	put it's number on the destination square
+			mov #0, (r0)		;   clear the source-square			
+	
+; -----------------  now, we check if was a skip : ----------------  
+			sub 10(sp), r0
+			sub 10(sp), r1
+			asr r0				
+			asr r1	
+			add r0, r1
+			clr r0
+			div #2, r0
+			cmp r1, #1
+			beq endMov		; check: if its an odd number, so there was'nt a skip
+			clr r0  		; r0 will be used to calculate the adversery number from now
+			mov #3, r0
+			sub	r2, r0		; r0 contain the adversery number now
+			mov -(r5), r2	; now, we will save source+dest positions in r2
+			add -(r5), r2
+			tst (r5)+		; set back the linking register
+			tst (r5)+		; ,,  ,,   ,,  ,,  	   ,,
+			; now, we know that  there was a skip and that means that src+dest is and 
+			; even number, and the skip was over the square in position (src+dest)/2. 
+			; So we can shift right the number (the LSB is zero) and get the square we skipped on:
+			; asr r2
+			add 10(sp), r2			
+			mov #0, (r2)
+endMov:		
+			mov (sp)+, r1
+			mov (sp)+, r0
+			mov (sp)+, r2
+			rts r5
+			
+
+Board:		.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	2,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	1,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+		
