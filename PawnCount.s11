@@ -4,7 +4,7 @@ main:		mov #main, sp
 			mov #Board, -(sp)
 			mov Player, -(sp)
 			jsr pc, CntPawn
-			mov 4(sp), r5  ;; for tests: see in pdp if its really count!
+			mov 4(sp), r5  ; for tests: see in pdp if its really count!
 			halt
 
 		 	; a branch that count the player (given in the stack, by value) pawns on board ( given in stack , by adress). 
