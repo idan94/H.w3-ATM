@@ -1,0 +1,10 @@
+
+
+minOrMax:	;current player in stack.
+			;addres of the player we check for in stack.
+			cmp 2(sp), @4(sp)
+			beq maxValue
+			mov #177777, r4	;r4 is outpur register
+			rts pc			;end function
+maxValue:	mov #1, r4		;r4 is output register
+			rts pc			;end function
