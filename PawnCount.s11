@@ -4,40 +4,38 @@ main:		mov #main, sp
 			mov #Board, -(sp)
 			mov Player, -(sp)
 			jsr pc, CntPawn
-			mov 4(sp), r5  ; for tests: see in pdp if its really count!
+			mov 4(sp), r5  ;; for tests: see in pdp if its really count!
 			halt
 
 		 	; a branch that count the player (given in the stack, by value) pawns on board ( given in stack , by adress). 
 			; stack order: [1.board 2. player 3. linking register]
 			; use: 
-			;r1 for iterating over the board. ; r0 is the number of squares in the board(for sob) ; r2 is the player number
+			;r0 for iterating over the board. ; r3 is the number of squares in the board(for sob) ; r2 is the player number
 			; r4 is a counter
 CntPawn:	
 ; -----------------  push the registers we use to the stack: -----------------  
-
-			mov r0, -(sp)
-			mov r1, -(sp)
+			mov r3, -(sp)
 			mov r2, -(sp)
+			mov r0, -(sp)
+			mov r4, -(sp)
+			clr r4
 ; -----------------  iniitilize registers values: -----------------  
-			mov #64., r0 		; for loop control ( num of squares)
-			mov 12(sp), r1		; r1 point to the first square address now
-			mov 10(sp), r2		; r2 contain the player we count 
+			mov #64., r3 		; for loop control ( num of squares)
+			mov 14(sp), r0		; r0 point to the first square address now
+			mov 12(sp), r2		; r2 contain the player we count 
 ChkLoop:	
-			cmp (r1), r2
+			cmp (r0), r2
 			beq AddPawn
-LoopEnd:	add #2, r1
-			sob r0, ChkLoop
-			mov (sp)+, r2
-			mov (sp)+, r1
+LoopEnd:	add #2, r0
+			sob r3, ChkLoop
+			mov r4, 16(sp) ; save the return value in the stack
+			mov (sp)+, r4
 			mov (sp)+, r0
-			mov counter, 6(sp) ; save the return value
-			
+			mov (sp)+, r2
+			mov (sp)+, r3
 			rts pc
-AddPawn:	add #1, counter	
+AddPawn:	add #1, r4	
 			br LoopEnd
-counter: 	.word 0
-
-
 
 Board:		.word	0,	1,	0,	1,	0,	1,	0,	1
 			.word	0,	0,	0,	0,	0,	0,	0,	0
