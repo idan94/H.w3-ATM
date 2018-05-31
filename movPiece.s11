@@ -44,12 +44,13 @@ movPiece:	mov	r2, -(sp) 		; r2 : save the player number
 			add -(r5), r2
 			tst (r5)+		; set back the linking register
 			tst (r5)+		; ,,  ,,   ,,  ,,  	   ,,
-			; now, we know that  there was a skip and that means that src+dest is and 
-			; even number, and the skip was over the square in position (src+dest)/2. 
-			; So we can shift right the number (the LSB is zero) and get the square we skipped on:
-			; asr r2
-			add 10(sp), r2			
-			mov #0, (r2)
+			; now, we know that  there was a skip :
+			add 10(sp), r2
+			cmp (r2), #0	; check if we "eat" a pawn or we are setting the board back
+			beq putAdver 	; the square is emty, means that we need to put the adversery back
+			mov #0, (r2)	; the square wasnt empty, so we put "0" in it (means that we "ate" the adversery pawn)
+			br endMov	
+putAdver:	mov r0, (r2) 	 
 endMov:		
 			mov (sp)+, r1
 			mov (sp)+, r0
