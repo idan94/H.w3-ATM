@@ -1,0 +1,307 @@
+.=torg + 1000
+main:		mov #main, sp
+			mov #0, -(sp)		; return value
+			mov #Board, -(sp)	; current board
+			mov #1, -(sp)   	; player number
+			jsr pc, checkWin
+			mov 4(sp), r4
+			halt
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+checkWin:	mov r0, -(sp)
+			mov r1, -(sp)
+; -----------------  iniitilize registers values: ---------------------------------------------------  
+			mov 6(sp), r0	; contain the current player
+			mov #3, r1		; adversery number
+			sub r0, r1
+;------------------- using CntPawn subroutine to count each player pawns:-------------------------------
+			mov #0, -(sp)		; place for return value
+			mov 12(sp), -(sp)	; put board in stack
+			mov r0, -(sp)		; put curr player on stack
+			jsr pc, CntPawn
+			mov 4(sp), r0 		; r0 contain now the number of pawns of the current player
+			mov r1, (sp)		; replace the player we count : put the adversery in stack in current player place
+			jsr pc, CntPawn
+			mov 4(sp), r1		; r1 contain now the number of pawns of the adversery
+			tst (sp)+			; innit stack after CntPawn
+			tst (sp)+
+			tst (sp)+			
+;------------------- check if adversery has no pawns on board :-------------------------------
+			cmp r1, #0
+			beq retWin			; adversery has no pawns on board - return a win
+			sub r1, r0
+			cmp r0, #0			; check if the current player have more pawns than the adversery
+			bgt chkMoves		; if so - check if they both got no moves
+retNoWin:	mov #177777, 12(sp)	; return -1 : not a win
+			
+endChkWn:				
+			mov (sp)+, r1	
+			mov (sp)+, r0	
+			rts pc
+chkMoves:	clr r0				; will now save NumMoves of the current player
+			clr r1				; will now save NumMoves of the adversery
+			mov #0, -(sp)		; for return value from NumMoves
+			mov 12(sp), -(sp)	; put board address in stack for NumMoves 
+			mov 12(sp), -(sp)   ; put player number value in stack for NumMoves
+			jsr pc, NumMoves
+			mov 4(sp), r0		; save NumMoves of the current player in r0
+			cmp r0, #0
+			bne noWin			; the current player has more moves - so not a win
+			mov #3, (sp)			; now we will replace the player we check his NumMoves : we send the adversery to NumMoves
+			sub 14(sp), (sp) 		; the stack contain the adversery number on top now
+			jsr pc, NumMoves
+			mov 4(sp), r1 		; save NumMoves of the adversery in r1
+			cmp r1, #0			
+			bne noWin			; the adversery player has more moves - so not a win
+			tst (sp)+
+			tst (sp)+
+			tst (sp)+
+retWin:		mov #1, 12(sp) 		; put 1 as the return value - Its a Win !
+			br endChkWn
+noWin:		tst (sp)+
+			tst (sp)+
+			tst (sp)+
+			br retNoWin
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+;----------------------------------------------Subroutine: count pawns(CntPawn)--------------------------------------------
+
+		 	; a branch that count the player (given in the stack, by value) pawns on board ( given in stack , by adress). 
+			; stack order: [1.board 2. player 3. linking register]
+			; use: 
+			;r0 for iterating over the board. ; r3 is the number of squares in the board(for sob) ; r2 is the player number
+			; r4 is a counter
+CntPawn:	
+; -----------------  push the registers we use to the stack: -----------------  
+			mov r3, -(sp)
+			mov r2, -(sp)
+			mov r0, -(sp)
+			mov r4, -(sp)
+			clr r4
+; -----------------  iniitilize registers values: -----------------  
+			mov #64., r3 		; for loop control ( num of squares)
+			mov 14(sp), r0		; r0 point to the first square address now
+			mov 12(sp), r2		; r2 contain the player we count 
+ChkLoop:	
+			cmp (r0), r2
+			beq AddPawn
+LoopEnd:	add #2, r0
+			sob r3, ChkLoop
+			mov r4, 16(sp) ; save the return value in the stack
+			mov (sp)+, r4
+			mov (sp)+, r0
+			mov (sp)+, r2
+			mov (sp)+, r3
+			rts pc
+AddPawn:	add #1, r4	
+			br LoopEnd
+
+			
+			
+			
+;--------------------------------------------------Subroutine: NumMoves----------------------------------------------------
+; return value in stack. Gets board address as parameter and a player number (by value).
+; return the number of moves the player can do in the given board.
+NumMoves:	mov r0, -(sp)				;r0 - saves the adress of the current square of board.
+			mov r1, -(sp)				;r1 - will save the column number
+			mov r2, -(sp)  			    ;r2 - will save the row number
+			mov r3, -(sp)				;r3 - for loop control. initialized as 56
+			mov #56., r3					; initialized with 56 ( number of squares we go over on each player turn)
+; ---------------We will check now if Player = 2, means that our check is for Black player moves.--------------------------
+; ---------------we initialize r0 to point to the first square in Board----------------------------------------------------
+			mov 14(sp), r0 					; save first square adress
+			cmp #2, 10(sp)					
+			beq BlckTurn 					; go to Black player part of the program
+; ---------------If We arrived here,it means Player = 1 and we need to check for the White player moves--------------------
+; ---------------so now we go from the Left to the Right, starting from the last row - square by square--------------------
+			add #176, r0  					;save last square of Board adress((64-1) * 2 (decimal) = 176 (octal) )
+			mov #8, r1 						; reset column number to 8.( we go over the board from the left to the right)
+			br WhtTurn 					; go to White player part of the program
+
+;------------------BlckTurn is a loop that goes over the 7 first lines of the Board, one square at a time------------------
+BlckTurn:	cmp (r0), #2 					; check whether its a black-pawn square or not
+		    beq chkMarg						; if its black player square - go and check if its a margin-square
+BlckTrn2:	add #1, r1 						; add 1 to r1 (column Counter)
+			cmp r1, #8
+			beq ClrCol 						; update to a new line
+BlckTrn3:	mov #0,CheckedR 				; initialization.
+			mov #0,CheckedL				 	; initialization
+			add #2, r0
+			sob r3, BlckTurn                ; BlckTurn loop will go on 56 squares, to check every possible move from each square
+Finish:		 								; we finished the Turn !	
+			mov (sp)+, r3
+			mov (sp)+, r2
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc
+			
+			
+			
+ClrCol:		clr r1 							; when column num =8 , set it back to zero
+			add #1, r2 						; +1 to line number
+			br BlckTrn3 					; continue black-player turn loop
+			
+
+
+
+chkMarg:	cmp r1, #0						;  to check if we are on a left margin square
+			beq LftMarg
+			cmp r1, #7						;  to check if we are on right margin square
+			beq RghtMarg	
+			br MainChk						;  square isnt a margin-square. go to Main-check
+LftMarg:	add #1, CheckedL 				;  flag: we are on the leftest column, so we dont want to check Left
+			br ChkRght
+RghtMarg:	add #1, CheckedR 				;  flag: we are on the rightest column, so we dont want to check Right	
+			br ChkLft	
+			
+MainChk:	cmp CheckedR,#0 				;  condition: we checked possibilities for moves on the right side of square
+			beq ChkRght
+			cmp CheckedL,#0					;  condition: we checked possibilities for moves on the left side of square
+			beq ChkLft
+			br BlckTrn2						; we checked all posibilites for moves for this pawn, continue Black-turn loop
+
+ChkRght:	mov r0, r4 
+			add #22, r4 					; save the Down&Right square's adress of the pawn r4
+			cmp (r4), #1 					; checks whats in down&right square
+			blt RAddMove 					; we found an empty square, add 1 to NumMoves
+			bgt FlagR 						; we found a black pawn, so continue to next square
+											;Now :white pawn found. We need to check if we can skip:
+			cmp r1, #6 						; verify if we are not going to overflow to the right edge
+			beq FlagR 	
+			cmp r2, #6 						; verify if we are not going to overflow on the Down edge
+			beq FlagR
+skipRt:		add #22, r4 					; go another time down&right
+			cmp (r4), #0
+			beq RAddMove 					; we can skip, so add 1 to NumMoves
+FlagR:		mov #1, CheckedR 				; flag: Right side check is finished
+			br MainChk
+RAddMove:	add #1, 16(sp) 				; we found a possible move at Right Side, so +1
+			mov #1, CheckedR 				; flag: Right side check is finished 
+			br MainChk;
+
+ChkLft:		mov r0, r4
+			add #16, r4 					; save the Down&Left square's adress of the pawn
+			cmp (r4), #1 					; checks what in down&left square
+			blt LAddMove 					; we found an empty square, add 1 to NumMoves
+			bgt FlagL						; we found a black pawn, so continue to next square
+											;Now : white pawn found. We need to check if we can skip:
+			cmp r1, #1 						; verify if we are not going to overflow to left edge
+			beq FlagL 	
+			cmp r2, #6 						; verify if we are not going to overflow on the Down edge
+			beq FlagL 	
+skipLft:	add #16, r4 					; go another time down&left
+			cmp (r4), #0
+			beq LAddMove 					; we can skip, so add 1 to NumMoves
+FlagL:		mov #1, CheckedL 				; flag, Left side check is finished
+			br MainChk
+LAddMove:	add #1, 16(sp)				; we found a possible move at Left Side, so +1
+			mov #1, CheckedL				; flag, Left side check is finished
+			br MainChk;
+;------------------WhtTurn is a loop that goes over the 7 last lines of the Board, one square at a time-------------------
+;------------------starting from the last square, and go left&up direction------------------------------------------------
+WhtTurn:	cmp (r0), #1 					; check whether its an white pawn square or not
+		    beq chkMargW 					; its a white-pawn square: go and check if its a margin square
+WhtTurn2:	sub #1, r1 						; subtitue 1 from r1 (column Counter)
+			cmp r1, #0
+			beq SetColW 					; update to a new line(reset column counter to 7)
+WhtTurn3:	mov #0,CheckedR					;initialization. label is for 'loop continue' after 'SetColW'
+			mov #0,CheckedL 				;initialization
+			sub #2, r0 						; go one square to the left
+			sob r3, WhtTurn
+			br Finish						; We finished counting all the possibilities, end program
+SetColW:	mov #8, r1 						; set r1(column counter) back to 8 (we moved up 1 line)
+			add #1, r2 						; +1 to line number
+			br WhtTurn3 					; continue White-player turn loop
+chkMargW:	cmp r1, #1						; to check if we are on a left margin square
+			beq LftMargW
+			cmp r1, #8 						; to check if we are on right margin square
+			beq RtMargW
+			br MainChkW
+
+LftMargW:	add #1, CheckedL 				; flag: we are on the leftest column, so we dont want to check Left
+			br ChkRtW
+RtMargW:	add #1, CheckedR				;  flag: we are on the rightest column, so we dont want to check Right	
+			br ChkLftW
+MainChkW:	
+			cmp CheckedR,#0
+			beq ChkRtW
+			cmp CheckedL,#0
+			beq ChkLftW
+			br WhtTurn2
+ChkRtW:		mov r0, r4 
+			sub #16, r4 					; save the Up&Right square's adress of the pawn
+			cmp (r4), #1 					; checks whats in down&right square
+			blt RAddW 						; we found an empty square, add 1 to NumMoves
+			beq WFlagR 						; we found a white pawn, so continue to next square
+											;Now :Black pawn found. We need to check if we can skip:
+			cmp r1, #7 						; verify if we are not going to overflow on the Right edge
+			beq WFlagR 	 					; if we'll overflow : check Flag and continue to main Check label
+			cmp r2, #6 						; verify if we are not going to overflow on the Up edge
+			beq WFlagR 	
+WskipRt:	sub #16, r4 					; go another time down&right
+			cmp (r4), #0
+			beq RAddW 						; we can skip, so add 1 to NumMoves
+WFlagR:		mov #1, CheckedR 				; flag, Right is Checked
+			br MainChkW
+RAddW:		add #1, 16(sp) 				; we found a possible move at Right Side, so +1
+			mov #1, CheckedR 				; flag, Right is Checked
+			br MainChkW;
+ChkLftW:	mov r0, r4
+			sub #22, r4 					; save the Up&Left square's adress of the pawn
+			cmp (r4), #1 					; checks what in down&left square
+			blt LAddW 						; we found an empty square, add 1 to NumMoves
+			beq WFlagL 						; we found a white pawn, so continue to next square
+											;Now : white pawn found. We need to check if we can skip:
+			cmp r1, #2 						; verify if we are not going to overflow
+			beq WFlagL 	
+			cmp r2, #6 						; verify if we are not going to overflow on the Up edge
+			beq WFlagL 		
+WskipLft:	sub #22, r4 					; go another time down&left
+			cmp (r4), #0
+			beq LAddW 						; we can skip, so add 1 to NumMoves
+WFlagL:		mov #1, CheckedL 				; flag, Left is Checked
+			br MainChkW
+LAddW:		add #1, 16(sp) 					; we found a possible move at Left Side, so +1
+			mov #1, CheckedL				; flag, Left is Checked
+			br MainChkW;
+;--------------------------------------------------Flags-----------------------------------------------------------------
+CheckedR: .word 0 ; Flag=1 if we checked possibilities for moves in the Right direction for the current square
+CheckedL: .word 0 ; Flag=1 if we checked possibilities for moves in the Left direction for the current square
+
+
+
+
+Board:		.word	0,	1,	0,	1,	0,	1,	0,	1
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	2,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	1,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
+			.word	0,	0,	0,	0,	0,	0,	0,	0
