@@ -6,49 +6,71 @@ calcWP:
 			mov r2, -(sp)
 ; -----------------  iniitilize registers values: -----------------  
 			clr r0
-;
-;
-;
-;WE NEED TO CHECK WIN IN THIS FUNCTION
-;
-;NEED TO EDIT
-;
-;
-;
+
 			mov #0, -(sp)		;place in stack for the return value
 			mov 14(sp), -(sp)	;push board address
 
+			;~~put player 1 number of pawns in r1~~
 			mov 1, -(sp)		;push  1- we want to check for player 1 number of pawns
 			jsr pc, CntPawn		;output in stack (4(sp))
 			tst (sp)+			;now the output in stack(2(sp))
 			mov 2(sp), r1		;r0 is now the number of pawns of player 1 
 
+			;~~put player 2 number of pawns in r2~~
 			mov 2, -(sp)		;push  2- we want to check for player 2 number of pawns
 			jsr pc, CntPawn		;output in stack (4(sp))
 			sub #4, sp			;now the output in stack(sp)
 			mov (sp)+, r2		;pop num of pawns of player 2 to r2 
+
+			:~~put in r1 the max, and in r2 the min~~
 			cmp r1, r2			;check who is bigger
+			beq equalSit		;if r1==r2, its means WP is 0, no metter if its last turn or not
 			bgt isBigger		;if (r1>r2)
 			sub r1, r2			;max WP is now in r2
 			mov r2, r1			;max WP is now in r1 too
-			br aftrisBig
+			br setMinVal
 isBigger:	sub r2, r1 			;max WP is now in r1
-			;r1 is max WP
-			clr r2
+setMinVal:	clr r2
 			sub r1, r2			;r2 is now min WP(negative of r1)
-aftrisBig:	mov 10(sp), -(sp)	;push current player
+
+			;~~check if the game is over(then WP should be 20 or -20)~~
+			mov #0, -(sp)		;place in stack for the return value
+			mov 14(sp), -(sp)	;push board address
+			mov 1, -(sp)		;push player 1
+			jsr checkWin		;check if player 1 has won. output now is in 4(sp)
+			cmp (sp), 1			;top output and compare
+			beq setWinWP		;if output==1 its means player 1 has won
+			
+			mov 2, 2(sp)		change input from player 1 to player 2
+			jsr checkWin		;check if player 2 has won. output now is in 4(sp)
+			sub #4, sp 			;pop 2 times
+			cmp (sp)-, 1		;pop output and compare
+
+			bne chkMinMax		;min and max updated, now check which one we want
+								;if output==1 its means player 2 has won	
+
+setWinWP:	mov #20, r1			;there is a win, so max WP is 20
+			clr r2
+			sub r1, r2			;and min WP is -20
+
+chkMinMax:	;~~check min or max for this turn~~
+			mov 10(sp), -(sp)	;push current player
 			mov #Player, -(sp)	;push the player we check for
 			jsr minOrMax		;out to r4. "1" for max value, "-1" for min value
 			sub $4, sp			;top 2 times
 			cmp r4, #1			
 			beq maxValue		;if r4==1 we want max value 
-			br minValue
+			mov r2, r4			;r4 output with currect WP(min)
+			br endCalcWP		
 maxValue:	mov r1, r4			;r4 output with currect WP(max)
-minValue:	mov r2, r4			;r4 output with currect WP(min)
-			
-			;~~~~~~  pop registers origin data ~~~~~~
+
+endCalcWP:	;~~~~~~  pop registers origin data ~~~~~~
 			mov (sp)+, r2
 			mov (sp)+, r1
 			mov (sp)+, r0
 			rts place			;end function
+			
+equalSit:	mov r4, 0			;WP should be 0, no metter if game over or not
+			br endCalcWP
+			
 			
