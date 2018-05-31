@@ -5,11 +5,50 @@ calcWP:
 			mov r1, -(sp)
 			mov r2, -(sp)
 ; -----------------  iniitilize registers values: -----------------  
-			mov #64., r0 		; for loop control ( num of squares)
-			mov 12(sp), r1		; r1 point to the first square address now
-			mov 10(sp), r2		; r2 contain the player we count (value)
+			clr r0
+;
+;
+;
+;WE NEED TO CHECK WIN IN THIS FUNCTION
+;
+;NEED TO EDIT
+;
+;
+;
+			mov #0, -(sp)		;place in stack for the return value
+			mov 14(sp), -(sp)	;push board address
 
+			mov 1, -(sp)		;push  1- we want to check for player 1 number of pawns
+			jsr pc, CntPawn		;output in stack (4(sp))
+			tst (sp)+			;now the output in stack(2(sp))
+			mov 2(sp), r1		;r0 is now the number of pawns of player 1 
+
+			mov 2, -(sp)		;push  2- we want to check for player 2 number of pawns
+			jsr pc, CntPawn		;output in stack (4(sp))
+			sub #4, sp			;now the output in stack(sp)
+			mov (sp)+, r2		;pop num of pawns of player 2 to r2 
+			cmp r1, r2			;check who is bigger
+			bgt isBigger		;if (r1>r2)
+			sub r1, r2			;max WP is now in r2
+			mov r2, r1			;max WP is now in r1 too
+			br aftrisBig
+isBigger:	sub r2, r1 			;max WP is now in r1
+			;r1 is max WP
+			clr r2
+			sub r1, r2			;r2 is now min WP(negative of r1)
+aftrisBig:	mov 10(sp), -(sp)	;push current player
+			mov #Player, -(sp)	;push the player we check for
+			jsr minOrMax		;out to r4. "1" for max value, "-1" for min value
+			sub $4, sp			;top 2 times
+			cmp r4, #1			
+			beq maxValue		;if r4==1 we want max value 
+			br minValue
+maxValue:	mov r1, r4			;r4 output with currect WP(max)
+minValue:	mov r2, r4			;r4 output with currect WP(min)
+			
+			;~~~~~~  pop registers origin data ~~~~~~
 			mov (sp)+, r2
 			mov (sp)+, r1
 			mov (sp)+, r0
-			mov ???, r4 ; save the return value
+			rts place			;end function
+			
