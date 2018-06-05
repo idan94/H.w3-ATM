@@ -83,9 +83,9 @@ enmyWon:	mov #177760, 22(sp)		;update output WP to 20
 			br endMaxWP
 			;---------node is on depth of steps given----------
 			;~~Switch Player~~
-			mov r1, r2				;r2 = current player now
+			mov r1, -(sp)			;push current player now
 			mov #3, r1				;r1 = 3 
-			sub r2, r1				;r1 = 3-r2( r1 switched from current player to enemy player)
+			sub (sp)+, r1			;r1 = 3-(pop stack); r1 switched from current player to enemy player)
 			;~~Switch Player Done~~
 			cmp 14(sp), #0			;check if steps=0
 			beq DpthZero
@@ -113,18 +113,18 @@ DpthZero:	mov 20(sp), -(sp)		;push Board for calcWP subrotine
 			mov #Player, -(sp)		;push original player address for minOrMax subrotine
 			jsr pc, minOrMax
 			add #4, sp				;top 2 times, [stack balanced]
-
 			mov #0, -(sp)			;push for output from numMoves subrorine
 			mov 20(sp), -(sp)		;push Board for numMoves subrotine
 			mov r1, -(sp)			;push Player for numMoves subrotine
 			jsr pc, numMoves
-			mov #0, -(sp)			;output from fndNxtMv: left step
-			mov #0, -(sp)			;output from fndNxtMv: right step
-			mov #0, -(sp)			;output from fndNxtMv: left eat
-			mov #0, -(sp)			;output from fndNxtMv: right eat
-			cmp r4, #1				;if r4==1 it means we want max
+			add #4, sp				;top 2 times
+			mov #0, -(sp)			;output from fndNxtMv: left step dest
+			mov #0, -(sp)			;output from fndNxtMv: right step dest
+			mov #0, -(sp)			;output from fndNxtMv: left eat dest
+			mov #0, -(sp)			;output from fndNxtMv: right eat dest
+			cmp r4, #1				;if r4==1 it means we want max; r4 is output from minOrMax
 			beq maxTurn
-			cmp r4, #177777			;if r4==(-1) it means we want min
+			cmp r4, #177777			;if r4==(-1) it means we want min; r4 is output from minOrMax
 			beq minTurn
 
 																;STACK__________________________________;
@@ -134,8 +134,6 @@ DpthZero:	mov 20(sp), -(sp)		;push Board for calcWP subrotine
 																;	left eat output				
 																;	right step output						
 																;	left step output
-																;	Player							
-																;	Board		
 																;	output from NumMoves						
 																;	r4								
 																;	r3								
@@ -153,116 +151,151 @@ DpthZero:	mov 20(sp), -(sp)		;push Board for calcWP subrotine
 
 
 maxTurn:	mov #177750, r0			;the lowest value possible
-loopMax:	cmp 14(sp), #0			;if number of moves left=0
+loopMax:	cmp 10(sp), #0			;if number of moves left=0
 			beq endLpMx				;end the loop
-			jsr pc, fndNxtMv
-miniMxLp:	;need to check 4 steps happend^^^^^^^^^^^^>>>>>>>>>>><<<<<<<<<<<<<<^^^^^^^^^^^
-			mov r2, r3				;now r3 points also to src(for easy add/sub to get dest)
-			cmp 10(sp), 1			;check Player black/white
-			beq clcDstWh
-			br clcDstBl
-rcGtMxWP:	mov #0, -(sp)			;push for src output from getMaxWP
+			jsr pc, fndNxtMv		;now the src is in r2
+			br fstOptMx				;go check all options for dests to check
+rcGtMxWP:	;~push outputs
+			mov #0, -(sp)			;push for src output from getMaxWP
 			mov #0, -(sp)			;push for dest output from getMaxWP
-			mov #0, -(sp)			;push for WP output from getMaxWP			
-			mov 12(sp), -(sp)		;push Board for movPiece subrotine
+			mov #0, -(sp)			;push for WP output from getMaxWP	
+			;~push new board		
+			mov 40(sp), -(sp)		;push Board for movPiece subrotine
 			jsr r5, movPiece
 			r2	;src
 			r3	;dest
-			;~~Switch Player~~
-			mov r1, r2				;r2 = current player now
-			mov #3, r1				;r1 = 3 
-			sub r2, r1				;r1 = 3-r2( r1 switched from current player to enemy player)
-			;~~Switch Player Done~~
-			mov r1, -(sp)			;push adversary as player
-			mov 44(sp), -(sp)		;push steps
-			dec 44(sp)				;update steps to (steps-1)
-			jsr pc, getMaxWP		
-			add #6, (sp)			;top 3
+			;~push advarsery
+			mov 3, -(sp)			;push 3 to stack
+			sub r1, (sp)			; Player in stack for Rec getMaxWP is adversary(3-curr player)
+			;~push new steps
+			mov 40(sp), -(sp)		;push steps
+			dec (sp)				;update steps to (steps-1)
+			jsr pc, getMaxWP		;
+
+			;;STACK___AFTER getMaxWp______________;
+																;						
+																;		
+																;
+																;
+																;
+																;	Steps(depth)-1						
+																;	Advarsery						
+																;	New(after movPiece) Board	
+																;	WP output						
+																;	dest output
+																;	src output
+																;	
+																;	right eat output				
+																;	left eat output				
+																;	.....
+																;	.....
+			add #6, (sp)			;pop 3
 			cmp (sp), r0			;compare WP returned with r0(max)
-			bgt stNewMax
-			br miniMxLp
-			br loopMax
-stNewMax:	mov (sp), r0
-			br miniMxLp
-			br loopMax
-endLpMx:	
+			bgt stNewMax			;if the new WP is bigger then max WP until now, set it to be the MAX WP
+			br fstOptMx				;if not, continue
+stNewMax:	mov (sp), r0			;set the new WP to be the max
+			mov 2(sp), 44(sp)		;also update getMaxWP outputs(dest)
+			mov 4(sp), 46(sp)		;also update getMaxWP outputs(src)
+			add #6, (sp)			;pop 3
 
-clDstMxW:	cmp (sp), #1		;calculate the dest by the outputs from fndNxtMv subrotine
-			beq rigtEatW		;set r3 to the rigt destination
-			cmp 2(sp), #1
-			beq lftEatW
-			cmp 4(sp), #1
-			beq rigtStpW
-			cmp 6(sp), #1
-			beq lftStpW
-ritEtMxW:	sub #14, r3
-			dec (sp)
+fstOptMx:	tst (sp)				;check if move is vaild
+			beq secOptMx			;if not, check next moves
+			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
-lftEtMxW:	sub #18, r3
-			dec 2(sp)
+secOptMx:	tst (sp)				;check if move is vaild
+			beq thrOptMx			;if not, check next moves
+			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
-ritStMxW:	sub #7, r3
-			dec 4(sp)
+thrOptMx:	tst (sp)				;check if move is vaild
+			beq frtOptMx			;if not, check next moves
+			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
-lftStMxW:	sub #9, r3
-			dec 6(sp)
-			br rcGtMxWP
-clDstMxB:	cmp (sp), #1
-			beq rigtEatB
-			cmp 2(sp), #1
-			beq lftEatB
-			cmp 4(sp), #1
-			beq rigtStpB
-			cmp 6(sp), #1
-			beq lftStpB
-ritEatMxB:	add #18, r3
-			dec (sp)
-			br rcGtMxWP
-lftEatMxB:	add #14, r3
-			dec 2(sp)
-			br rcGtMxWP
-ritStpMxB:	add #9, r3
-			dec 4(sp)
-			br rcGtMxWP
-lftStpMxB:	add #7, r3
-			dec 6(sp)
+frtOptMx:	tst (sp)				;check if move is vaild
+			beq loopMax				;if not, check next src (loop)
+			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
 
-minTurn:	mov #21, r0				;the highest value possible
-loopMin:	cmp (sp), #0			;if number of moves left=0
+endLpMx:	rts, pc
+
+
+
+
+minTurn:	mov #177750, r0			;the lowest value possible
+loopMin:	cmp 10(sp), #0			;if number of moves left=0
 			beq endLpMn				;end the loop
-			jsr pc, fndNxtMv
-			mov r2, r3				;now r3 points also to src
-			cmp 10(sp), 1
-			beq clcDstWh
-			br clcDstBl
-
-
-			br loopMin
-endLpMn:	
-
-
-
-
-recGetWP:	mov #0, -(sp)			;push for src output from getMaxWP
+			jsr pc, fndNxtMv		;now the src is in r2
+			br fstOptMn				;go check all options for dests to check
+rcGtMnWP:	;~push outputs
+			mov #0, -(sp)			;push for src output from getMaxWP
 			mov #0, -(sp)			;push for dest output from getMaxWP
-			mov #0, -(sp)			;push for WP output from getMaxWP
+			mov #0, -(sp)			;push for WP output from getMaxWP	
+			;~push new board		
+			mov 40(sp), -(sp)		;push Board for movPiece subrotine
+			jsr r5, movPiece
+			r2	;src
+			r3	;dest
+			;~push advarsery
+			mov 3, -(sp)			;push 3 to stack
+			sub r1, (sp)			; Player in stack for Rec getMaxWP is adversary(3-curr player)
+			;~push new steps
+			mov 40(sp), -(sp)		;push steps
+			dec (sp)				;update steps to (steps-1)
+			jsr pc, getMaxWP		;
 
-endMaxWP:	;~~~~~~  pop registers origin data//Output allready inside stack ~~~~~~
-			mov (sp)+, r4
-			mov (sp)+, r3
-			mov (sp)+, r2
-			mov (sp)+, r1
-			mov (sp)+, r0
-			rts pc			;end function
- 			
+			;;STACK___AFTER getMaxWp______________;
+																;						
+																;		
+																;
+																;
+																;
+																;	Steps(depth)-1						
+																;	Advarsery						
+																;	New(after movPiece) Board	
+																;	WP output						
+																;	dest output
+																;	src output
+																;	
+																;	right eat output				
+																;	left eat output				
+																;	.....
+																;	.....
+			add #6, (sp)			;pop 3
+			cmp (sp), r0			;compare WP returned with r0(max)
+			bgt stNewMin			;if the new WP is bigger then max WP until now, set it to be the MAX WP
+			br fstOptMn				;if not, continue
+stNewMin:	mov (sp), r0			;set the new WP to be the max
+			mov 2(sp), 44(sp)		;also update getMaxWP outputs(dest)
+			mov 4(sp), 46(sp)		;also update getMaxWP outputs(src)
+			add #6, (sp)			;pop 3
+
+fstOptMn:	tst (sp)				;check if move is vaild
+			beq secOptMn			;if not, check next moves
+			mov (sp), r3			;insert first dest to r3
+			br rcGtMnWP
+secOptMn:	tst (sp)				;check if move is vaild
+			beq thrOptMn			;if not, check next moves
+			mov (sp), r3			;insert first dest to r3
+			br rcGtMnWP
+thrOptMn:	tst (sp)				;check if move is vaild
+			beq frtOptMn			;if not, check next moves
+			mov (sp), r3			;insert first dest to r3
+			br rcGtMnWP
+frtOptMn:	tst (sp)				;check if move is vaild
+			beq loopMin				;if not, check next src (loop)
+			mov (sp), r3			;insert first dest to r3
+			br rcGtMnWP
+
+endLpMn:	rts, pc
 
 
 
 
-fndPlPwn:	
+fndPlPwn:	;for gameover we need one pawn from player, to return src=dest
+			;in stack- 2 inputs: Board, Player
+			;output in r3
 
-fndNxtMv:	;in stack- 4 binary outputs: left step, right step, left eat, right eat
+
+fndNxtMv:	;in stack- 4 dest outputs: left step, right step, left eat, right eat
 			;in stack- 2 inputs: Board, Player
 			;r2 output is src
 			
