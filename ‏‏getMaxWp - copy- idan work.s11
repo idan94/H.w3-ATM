@@ -149,12 +149,18 @@ DpthZero:	mov 20(sp), -(sp)		;push Board for calcWP subrotine
 																;	src output
 																;______________________________________
 
-
+noMovsMx:	jsr pc, fndPlPwn		;if there are no movs, we want to check "no move" move
+			mov r3, r2				;now r2=r3=random pawn
+			br rcGtMxWP
 maxTurn:	mov #177750, r0			;the lowest value possible
+			cmp 10(sp), #0			;if number of moves left=0
+			beq noMovsMx			;end the loop
 loopMax:	cmp 10(sp), #0			;if number of moves left=0
 			beq endLpMx				;end the loop
 			jsr pc, fndNxtMv		;now the src is in r2
-			br fstOptMx				;go check all options for dests to check
+									;go check all options for dests to check
+			mov r2, r3				;check 'Not to move' move
+
 rcGtMxWP:	;~push outputs
 			mov #0, -(sp)			;push for src output from getMaxWP
 			mov #0, -(sp)			;push for dest output from getMaxWP
@@ -198,6 +204,7 @@ stNewMax:	mov (sp), r0			;set the new WP to be the max
 			mov 4(sp), 46(sp)		;also update getMaxWP outputs(src)
 			add #6, (sp)			;pop 3
 
+
 fstOptMx:	tst (sp)				;check if move is vaild
 			beq secOptMx			;if not, check next moves
 			mov (sp), r3			;insert first dest to r3
@@ -215,16 +222,24 @@ frtOptMx:	tst (sp)				;check if move is vaild
 			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
 
+
+
 endLpMx:	rts, pc
 
 
 
-
+noMovsMn:	jsr pc, fndPlPwn		;if there are no movs, we want to check "no move" move
+			mov r3, r2				;now r2=r3=random pawn
+			br rcGtMxWP
 minTurn:	mov #177750, r0			;the lowest value possible
+			cmp 10(sp), #0			;if number of moves left=0
+			beq noMovsMx			;end the loop
 loopMin:	cmp 10(sp), #0			;if number of moves left=0
 			beq endLpMn				;end the loop
 			jsr pc, fndNxtMv		;now the src is in r2
-			br fstOptMn				;go check all options for dests to check
+									;go check all options for dests to check
+			mov r2, r3				;check 'Not to move' move
+			
 rcGtMnWP:	;~push outputs
 			mov #0, -(sp)			;push for src output from getMaxWP
 			mov #0, -(sp)			;push for dest output from getMaxWP
