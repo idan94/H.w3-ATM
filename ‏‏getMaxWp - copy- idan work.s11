@@ -153,7 +153,7 @@ noMovsMx:	jsr pc, fndPlPwn		;if there are no movs, we want to check "no move" mo
 			mov r3, r2				;now r2=r3=random pawn
 			br rcGtMxWP
 maxTurn:	mov #177750, r0			;the lowest value possible
-			cmp 10(sp), #0			;if number of moves left=0
+			mov , r2 		;set r2=(-1.) 
 			beq noMovsMx			;end the loop
 loopMax:	cmp 10(sp), #0			;if number of moves left=0
 			beq endLpMx				;end the loop
@@ -209,17 +209,17 @@ fstOptMx:	tst (sp)				;check if move is vaild
 			beq secOptMx			;if not, check next moves
 			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
-secOptMx:	tst (sp)				;check if move is vaild
+secOptMx:	tst 2(sp)				;check if move is vaild
 			beq thrOptMx			;if not, check next moves
-			mov (sp), r3			;insert first dest to r3
+			mov 2(sp), r3			;insert first dest to r3
 			br rcGtMxWP
-thrOptMx:	tst (sp)				;check if move is vaild
+thrOptMx:	tst 4(sp)				;check if move is vaild
 			beq frtOptMx			;if not, check next moves
-			mov (sp), r3			;insert first dest to r3
+			mov 4(sp), r3			;insert first dest to r3
 			br rcGtMxWP
-frtOptMx:	tst (sp)				;check if move is vaild
+frtOptMx:	tst 6(sp)				;check if move is vaild
 			beq loopMax				;if not, check next src (loop)
-			mov (sp), r3			;insert first dest to r3
+			mov 6(sp), r3			;insert first dest to r3
 			br rcGtMxWP
 
 
@@ -274,6 +274,7 @@ rcGtMnWP:	;~push outputs
 																;	left eat output				
 																;	.....
 																;	.....
+
 			add #6, (sp)			;pop 3
 			cmp (sp), r0			;compare WP returned with r0(max)
 			bgt stNewMin			;if the new WP is bigger then max WP until now, set it to be the MAX WP
@@ -287,17 +288,17 @@ fstOptMn:	tst (sp)				;check if move is vaild
 			beq secOptMn			;if not, check next moves
 			mov (sp), r3			;insert first dest to r3
 			br rcGtMnWP
-secOptMn:	tst (sp)				;check if move is vaild
+secOptMn:	tst 2(sp)				;check if move is vaild
 			beq thrOptMn			;if not, check next moves
-			mov (sp), r3			;insert first dest to r3
+			mov 2(sp), r3			;insert first dest to r3
 			br rcGtMnWP
-thrOptMn:	tst (sp)				;check if move is vaild
+thrOptMn:	tst 4(sp)				;check if move is vaild
 			beq frtOptMn			;if not, check next moves
-			mov (sp), r3			;insert first dest to r3
+			mov 4(sp), r3			;insert first dest to r3
 			br rcGtMnWP
-frtOptMn:	tst (sp)				;check if move is vaild
+frtOptMn:	tst 6(sp)				;check if move is vaild
 			beq loopMin				;if not, check next src (loop)
-			mov (sp), r3			;insert first dest to r3
+			mov 6(sp), r3			;insert first dest to r3
 			br rcGtMnWP
 
 endLpMn:	rts, pc
