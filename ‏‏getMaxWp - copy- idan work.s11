@@ -166,7 +166,7 @@ rcGtMxWP:	;~push outputs
 			mov #0, -(sp)			;push for dest output from getMaxWP
 			mov #0, -(sp)			;push for WP output from getMaxWP	
 			;~push new board		
-			mov 40(sp), -(sp)		;push Board for movPiece subrotine
+			mov 40(sp), -(sp)		;push Board for movPiece subrotine    (ETAI: why not use the label "BOARD"?)
 			jsr r5, movPiece
 			r2	;src
 			r3	;dest
@@ -175,7 +175,7 @@ rcGtMxWP:	;~push outputs
 			sub r1, (sp)			; Player in stack for Rec getMaxWP is adversary(3-curr player)
 			;~push new steps
 			mov 40(sp), -(sp)		;push steps
-			dec (sp)				;update steps to (steps-1)
+			dec (sp)				;update steps to (steps-1)				( ETAI: i think its -2 . check mb need "decb")
 			jsr pc, getMaxWP		;
 
 			;;STACK___AFTER getMaxWp______________;
@@ -205,7 +205,7 @@ stNewMax:	mov (sp), r0			;set the new WP to be the max
 			add #6, (sp)			;pop 3
 
 
-fstOptMx:	tst (sp)				;check if move is vaild
+fstOptMx:	tst (sp)				;check if move is vaild						( ETAI: you are not poping, so (sp) is WP. or am i wrong?)
 			beq secOptMx			;if not, check next moves
 			mov (sp), r3			;insert first dest to r3
 			br rcGtMxWP
@@ -301,7 +301,7 @@ frtOptMn:	tst 6(sp)				;check if move is vaild
 			mov 6(sp), r3			;insert first dest to r3
 			br rcGtMnWP
 
-endLpMn:	rts, pc
+endLpMn:	rts pc
 
 
 
@@ -309,38 +309,336 @@ endLpMn:	rts, pc
 fndPlPwn:	;for gameover we need one pawn from player, to return src=dest
 			;in stack- 2 inputs: Board, Player
 			;output in r3
-
-
-fndNxtMv:	;in stack- 4 dest outputs: left step, right step, left eat, right eat
-			;in stack- 2 inputs: Board, Player
-			;r2 output is src
+; -----------------  push the registers we use to the stack: -----------------  
+			mov r0, -(sp)
+			mov r1, -(sp)
 			
+			;-----
+			mov 10(sp), r0 		; contain the first square
+			mov #64., r1 		; loop will go on 64 times(squares) or untill we find a pawn
+chkSqre:	cmp (r0), 6(sp)
+			beq retPawn
+			add #2, r0			; point to the next square
+			sob r1, chkSqre		; 
+retPawn:	sub 10(sp), r0
+			asr r0
+			mov r0, r3			; save output in r3
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc
 
+			
+																;STACK__________________________________;
+																;						
+																;	r5	
+																;	r4
+																;	r3
+																;	r1
+																;	r0
+																;	linking register							
+																;	Board						
+																;	right skip output						
+																;	left skip output						
+																;	right step output
+																;	left step output
+																;______________________________________
+		
+		
+			; function checks valid moves for the next black player's pawn found.
+bkFndNxt:	;in stack- 4 dest outputs: left step, right step, left eat, right eat
+			;in stack- 1 input: Board
+			;r2 contain the square index we check from.(input between 0-63 in decimal)
+			;2 local words(flags) are used here: RFlagB and LFlagB.
+; -----------------  push the registers we use to the stack: -----------------  
+			mov r0, -(sp)
+			mov r1, -(sp)			
+			mov r3, -(sp)		;	r3 - save the adress of the square we check . r2- save the index(0-63)
+								;   save the maximum num of squares we have to check
+			mov r4, -(sp)		
+			mov r5, -(sp)
+; -----------------  innitilization -----------------  
+			mov #56., r4			;	r4 will contain the maximum squares we will have to go(for loop control)	
+			sub r2, r4
+			mov r2, r3			;	innit r3 to square address:
+			asl r3				;	multiply index by 2
+			add 14(sp), r3		; 	add board adress : now r3 is the adress of the square r2 was index of.
+; -----------------  lopp that checks if its a black pawn square: -----------------  
+chkIfBlk:	cmp (r3), #2
+			beq mrgChkB 			; its a black pawn square- so check if its a  margin square now
+			; if not, go to the next square:
+bGoToNxt:	add #2, r3			; next square address
+			add #1, r2			; next square index
+			sob r4, chkIfBlk
+			jmp bEnd
+; -----------------  margin check: -----------------  
+mrgChkB:		mov r2, r1 			;	copy the current square index(will be used to check if its a margin square).
+			clr r0
+			div #8, r0
+			cmp r1, #0
+			beq bLftMrg
+			cmp r1, #7
+			beq bRgtMrg
+; -----------------  main check of the pawn square: -----------------  
+BlkSqre:	cmp RFlagB, #1			; checks if we checked right move\skip possibillity
+			bne bRgtChk
+			cmp LFlagB, #1			; checks if we checked left move\skip possibillity
+			bne bLftChk
+			mov #0,	RFlagB			; innitialize flags for next check
+			mov #0, LFlagB
+			br 	chkBMovs				; we checked all the possible moves to the pawn we found: so check if there were moves
+; -----------------  right moves check: -----------------  
+bRgtChk:	
+			mov r3, r5
+			add #22, r5
+			cmp (r5), #1					; checks whats in down&right square
+			blt bMovRgt 					; we found an empty square, so move Right is Valid(and skip is not)
+			beq bRgtSkip 					; we found a white pawn, so check fo a skip
+			; if we are here, so there is no move right \ skip right:
+bNoMovsR:	mov #0, 16(sp)
+			mov #0, 22(sp)
+			br chkRFlag
+bMovRgt:	mov r5,	22(sp)					; put output in stack : Move right adress
+			mov #0, 16(sp)					; skip right is not valid , so put 0
+			br chkRFlag
+chkRFlag:	mov #1, RFlagB
+			br BlkSqre
+bRgtSkip:	; here we check if we can skip. first, we check if we wont skip of-board of the right edge:
+			mov r2,r1
+			clr r0
+			div #8, r0
+			cmp r1, #6						; check if we are on the second column from the left
+			beq bNoMovsR					; if so  -  no skip
+			; now we will check if we are on the 7th line- means that we cant skip too:
+			cmp #47., r2
+			blt bNoMovsR					
+			add #22, r5						; go another time down&right
+			cmp (r5), #0					
+			beq skpRgtOk					; we found an empty square, so we can skip right
+			br bNoMovsR						; we cannot skip, so no moves right
+skpRgtOk:	mov r5, 16(sp)
+			mov #0,	22(sp)
+			br chkRFlag
+; -----------------  left moves check: -----------------  
+bLftChk:	
+			mov r3, r5
+			add #16, r5
+			cmp (r5), #1					; checks whats in down&left square
+			blt movLftOk 					; we found an empty square, so move left is Valid(and skip is not)
+			beq bLftSkip 					; we found a white pawn, so check for a skip
+			; if we are here, so there is no move right \ skip right:
+bNoMovsL:	mov #0, 20(sp)
+			mov #0, 24(sp)
+			br chkLFlag
+movLftOk:	mov r5,	24(sp)					; put output in stack : Move left adress
+			mov #0, 20(sp)					; skip left is not valid , so put 0
+			br chkLFlag
+chkLFlag:	mov #1, LFlagB
+			br BlkSqre
+bLftSkip:	; here we check if we can skip. first, we check if we wont skip of the board edge:
+			mov r2,r1
+			clr r0
+			div #8, r0
+			cmp r1, #1						; check if we are on the second column from the left
+			beq bNoMovsL					; if so  -  no skip
+			; now we will check if we are on the 7th line- means that we cant skip too:
+			cmp #47., r2
+			blt bNoMovsL	
+			add #16, r5						; go another time down&left
+			cmp (r5), #0					
+			beq skpLftOk					; we found an empty square, so we can skip left
+			br bNoMovsL						; we cannot skip, so no moves right
+skpLftOk:	mov r5, 20(sp)
+			mov #0,	24(sp)
+			br chkLFlag		
+; -----------------  we are on the leftest column. so no skip\move left: -----------------  
 
+bLftMrg:	mov #0, 20(sp)
+			mov #0,	24(sp)
+			mov #1, LFlagB
+			br BlkSqre
+; -----------------  we are on the rightest column. so no skip\move right: -----------------  
 
+bRgtMrg:	mov #0, 22(sp)
+			mov #0,	16(sp)
+			mov #1, RFlagB
+			br BlkSqre
+;  after we checked a black pawn square, we check if there were moves- if yes, finish subroutine. if not - go to next square:   
+chkBMovs:	cmp #0, 20(sp)
+			bne bEnd
+			cmp #0, 16(sp)
+			bne bEnd
+			cmp #0, 22(sp)
+			bne bEnd
+			cmp #0, 24(sp)
+			bne bEnd
+			jmp bGoToNxt						;	we didnt find any moves for the last pawn we checked, so go to the next square.
+bEnd:		; finish the subroutine
+			mov (sp)+, r5
+			mov (sp)+, r4
+			mov (sp)+, r3
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc	
+RFlagB:	.word 0
+LFlagB:	.word 0
+;END OF bkFndNxt Subroutine
+																;STACK__________________________________;
+																;						
+																;	r5	
+																;	r4
+																;	r3
+																;	r1
+																;	r0
+																;	linking register							
+																;	Board						
+																;	right skip output						
+																;	left skip output						
+																;	right step output
+																;	left step output
+																;______________________________________
+		
+			; function checks valid moves for the next white player's pawn found.
+wtFndNxt:	;in stack- 4 dest outputs: left step, right step, left eat, right eat
+			;in stack- 1 input: Board
+			;r2 contain the square index we check from.(input between 0-63 in decimal )
+			;2 local words(flags) are used here: RFlagWW and LFlagWW.
+; -----------------  push the registers we use to the stack: -----------------  
+			mov r0, -(sp)
+			mov r1, -(sp)			
+			mov r3, -(sp)		;	r3 - save the adress of the square we check . r2- save the index(0-63)
+								;   save the maximum num of squares we have to check
+			mov r4, -(sp)		
+			mov r5, -(sp)
+; -----------------  innitilization -----------------  
+			mov #64., r4			;	r4 will contain the maximum squares we will have to go(for loop control)
+			cmp #8, r2
+			ble conInnit		; skip next line if index is > 7
+			mov #8., r2			; if the index is between 0-7: make the index start from 8(second line).
+conInnit:	sub r2, r4
+			mov r2, r3			;	innit r3 to square address:
+			asl r3				;	multiply index by 2
+			add 14(sp), r3		; 	add board adress : now r3 is the adress of the square r2 was index of.
+			
+; -----------------  loop that checks if its a white pawn square: -----------------  
+chkIfWht:	cmp (r3), #1
+			beq mrgChkW 			; its a white pawn square- so check if its a  margin square now
+			; if not, go to the next square:
+wGoToNxt:	add #2, r3			; next square address
+			add #1, r2			; next square index
+			sob r4, chkIfWht	
+			jmp wEnd
+; -----------------  margin check: -----------------  
+mrgChkW:	mov r2, r1 			;	copy the current square index(will be used to check if its a margin square).
+			clr r0
+			div #8, r0
+			cmp r1, #0
+			beq wLftMrg
+			cmp r1, #7
+			beq wRgtMrg
+; -----------------  main check of the white pawn square: -----------------  
+whtSqre:	cmp RFlagW, #1			; checks if we checked right move\skip possibillity
+			bne wRgtChk
+			cmp LFlagW, #1			; checks if we checked left move\skip possibillity
+			bne wLftChk
+			mov #0,	RFlagW			; innitialize flags
+			mov #0, LFlagW
+			br chkWMovs			
+; -----------------  right moves check: -----------------  
+wRgtChk:	
+			mov r3, r5
+			sub #16, r5
+			cmp (r5), #1					; checks whats in up&right square
+			blt wMovRgt 					; we found an empty square, so move Right is Valid(and skip is not)
+			bgt wRgtSkip 					; we found a black pawn, so check for a skip
+			; if we are here, so there is no move right \ skip right:
+wNoMovsR:	mov #0, 16(sp)
+			mov #0, 22(sp)
+			br ckRFlagW
+wMovRgt:	mov r5,	22(sp)					; put output in stack : Move right adress
+			mov #0, 16(sp)					; skip right is not valid , so put 0
+			br ckRFlagW
+ckRFlagW:	mov #1, RFlagW
+			br whtSqre
+wRgtSkip:	; here we check if we can skip. first, we check if we wont skip of-board to the right edge:
+			mov r2,r1
+			clr r0
+			div #8, r0
+			cmp r1, #6						; check if we are on the second column from the left
+			beq wNoMovsR					; if so  -  no skip
+			; now we will check if we are on the 2th line- means that we cant skip too:
+			cmp #16., r2
+			blt wNoMovsR	
+			sub #16, r5						; go another time up&right
+			cmp (r5), #0					
+			beq wSkpRtOk					; we found an empty square, so we can skip right
+			br wNoMovsR						; we cannot skip, so no moves right
+wSkpRtOk:	mov r5, 16(sp)
+			mov #0,	22(sp)
+			br ckRFlagW
+; -----------------  left moves check: -----------------  
+wLftChk:	
+			mov r3, r5
+			sub #22, r5
+			cmp (r5), #1					; checks whats in up&left square
+			blt wMovLft 					; we found an empty square, so move left is Valid(and skip is not)
+			bgt wLftSkip 					; we found a black pawn, so check for a skip
+			; if we are here, so there is no move right \ skip right:
+wNoMovsL:	mov #0, 20(sp)
+			mov #0, 24(sp)
+			br ckLFlagW
+wMovLft:	mov r5,	24(sp)					; put output in stack : Move left adress
+			mov #0, 20(sp)					; skip left is not valid , so put 0
+			br ckLFlagW
+ckLFlagW:	mov #1, LFlagW
+			br whtSqre
+wLftSkip:	; here we check if we can skip. first, we check if we wont skip of the left board edge:
+			mov r2,r1
+			clr r0
+			div #8, r0
+			cmp r1, #1						; check if we are on the second column from the left
+			beq wNoMovsL					; if so  -  no skip
+			; now we will check if we are on the 2th line- means that we cant skip too:
+			cmp #16., r2
+			beq wNoMovsL					; if so  -  no skip
+			sub #22, r5						; go another time up&left
+			cmp (r5), #0					
+			beq wSkpLtOk					; we found an empty square, so we can skip left
+			br wNoMovsL						; we cannot skip, so no moves right
+wSkpLtOk:	mov r5, 20(sp)
+			mov #0,	24(sp)
+			br ckLFlagW		
+; -----------------  we are on the leftest column. so no skip\move left: -----------------  
 
+wLftMrg:	mov #0, 20(sp)
+			mov #0,	24(sp)
+			mov #1, LFlagW
+			br whtSqre
+; -----------------  we are on the rightest column. so no skip\move right: -----------------  
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+wRgtMrg:	mov #0, 22(sp)
+			mov #0,	16(sp)
+			mov #1, RFlagW
+			br whtSqre
+;  after we checked a white pawn square, we check if there were moves- if yes, finish subroutine. if not - go to next square:   
+chkWMovs:	cmp #0, 20(sp)
+			bne wEnd
+			cmp #0, 16(sp)
+			bne wEnd
+			cmp #0, 22(sp)
+			bne wEnd
+			cmp #0, 24(sp)
+			bne wEnd
+			jmp wGoToNxt						;	we didnt find any moves for the last pawn we checked, so go to the next square.
+wEnd:		; finish the subroutine
+			mov (sp)+, r5
+			mov (sp)+, r4
+			mov (sp)+, r3
+			mov (sp)+, r1
+			mov (sp)+, r0
+			rts pc	
+RFlagW:	.word 0
+LFlagW:	.word 0
+;END OF wtFndNxt Subroutine
 
 
 
